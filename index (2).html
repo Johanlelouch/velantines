@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hearts Animation</title>
+    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; }
+        canvas { background-color: #312; display: block; touch-action: none; }
+    </style>
+</head>
+<body onload="init();">
+    <canvas id="testCanvas"></canvas>
+
+    <script>
+        var canvas, stage, container, text, captureContainers, captureIndex;
+        var heartsCount = 60; // Slightly fewer hearts for better mobile performance
+
+        function init() {
+            canvas = document.getElementById("testCanvas");
+            stage = new createjs.Stage(canvas);
+            
+            container = new createjs.Container();
+            stage.addChild(container);
+
+            text = new createjs.Text("the longer I'm with you\nthe more I love you", "bold 24px Arial", "#FFF");
+            text.textAlign = "center";
+            text.textBaseline = "middle";
+            stage.addChild(text);
+
+            captureContainers = [];
+            captureIndex = 0;
+
+            // Handle initial size and future resizing
+            window.addEventListener('resize', handleResize, false);
+            handleResize();
+
+            // 1. Create Hearts
+            for (var i = 0; i < heartsCount; i++) {
+                var heart = new createjs.Shape();
+                // Random pink/red HSL colors
+                heart.graphics.beginFill(createjs.Graphics.getHSL(Math.random() * 30 - 45, 100, 50 + Math.random() * 30));
+                heart.graphics.moveTo(0, -12).curveTo(1, -20, 8, -20).curveTo(16, -20, 16, -10).curveTo(16, 0, 0, 12);
+                heart.graphics.curveTo(-16, 0, -16, -10).curveTo(-16, -20, -8, -20).curveTo(-1, -20, 0, -12);
+                
+                resetHeart(heart, canvas.width, canvas.height);
+                // Randomize starting Y so they don't all appear at once
+                heart.y = Math.random() * canvas.height; 
+
+                container.addChild(heart);
+            }
+
+            // 2. Setup Trail Containers (Optimized for mobile)
+            for (i = 0; i < 40; i++) {
+                var captureContainer = new createjs.Container();
+                captureContainers.push(captureContainer);
+            }
+
+            createjs.Ticker.timingMode = createjs.Ticker.RAF;
+            createjs.Ticker.on("tick", tick);
+        }
+
+        function handleResize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // Update text position
+            text.x = canvas.width / 2;
+            text.y = canvas.height / 2;
+            
+            // Adjust font size for small screens
+            if(canvas.width < 500) {
+                text.font = "bold 18px Arial";
+            } else {
+                text.font = "bold 24px Arial";
+            }
+
+            // Reset cache containers on resize
+            for (var i = 0; i < captureContainers.length; i++) {
+                captureContainers[i].cache(0, 0, canvas.width, canvas.height);
+            }
+            
+            stage.update();
+        }
+
+        function resetHeart(heart, w, h) {
+            heart.scaleX = heart.scaleY = Math.random() * 1.2 + 0.6; // Smaller scale for mobile
+            heart.y = h + 50;
+            heart._x = Math.random() * w;
+            heart.velY = -Math.random() * 2 - 1;
+            heart.perX = (1 + Math.random() * 2) * h;
+            heart.offX = Math.random() * h;
+            heart.ampX = heart.perX * 0.1 * (0.15 + Math.random());
+            heart._rotation = Math.random() * 40 - 20;
+            heart.alpha = Math.random() * 0.75 + 0.05;
+        }
+
+        function tick(event) {
+            var w = canvas.width;
+            var h = canvas.height;
+            var l = container.numChildren;
+
+            captureIndex = (captureIndex + 1) % captureContainers.length;
+            stage.removeChildAt(0);
+            var captureContainer = captureContainers[captureIndex];
+            stage.addChildAt(captureContainer, 0);
+            captureContainer.addChild(container);
+
+            for (var i = 0; i < l; i++) {
+                var heart = container.getChildAt(i);
+                if (heart.y < -50) {
+                    resetHeart(heart, w, h);
+                }
+                var int = (heart.offX + heart.y) / heart.perX * Math.PI * 2;
+                heart.y += heart.velY * heart.scaleX / 2;
+                heart.x = heart._x + Math.cos(int) * heart.ampX;
+                heart.rotation = heart._rotation + Math.sin(int) * 30;
+            }
+
+            captureContainer.updateCache("source-over");
+            stage.update(event);
+        }
+    </script>
+</body>
+</html>
